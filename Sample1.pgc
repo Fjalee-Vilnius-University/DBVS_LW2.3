@@ -1,0 +1,24 @@
+#include <stdio.h>
+
+EXEC SQL BEGIN DECLARE SECTION ;
+int result ;
+EXEC SQL END DECLARE SECTION ;
+
+int main()
+{
+  printf("Programa pradeda darba\n") ;
+
+  EXEC SQL CONNECT TO studentu@pgsql3.mif USER ryce6320 USING Ce123456 ;
+
+  printf("CONNECT TO Siuvykla. SQLCODE=%ld\n", SQLCODE ) ;
+  if( 0 == SQLCODE )
+    EXEC SQL SELECT COUNT(*) INTO :result FROM ryce6320.Klientas ;
+  if( 0 == SQLCODE )
+    printf("Programa veikia! Klientu skaicius=%d\n", result) ;
+  else
+    printf("SQLCODE=%ld\n", SQLCODE ) ;
+
+  EXEC SQL DISCONNECT ;
+
+  return 0 ;
+}
