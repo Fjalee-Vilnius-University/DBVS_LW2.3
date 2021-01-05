@@ -7,6 +7,8 @@ bool ShowAllKlientas();
 void DeleteKlientas();
 void UpdateKlientas();
 bool ConnectToDB();
+int MainMenu();
+int KlientasMenu();
 
 int main()
 {
@@ -14,15 +16,42 @@ int main()
   bool connected = ConnectToDB();
   
   if (connected){
-    AddKlientas();
-  //DeleteKlientas();
-  //UpdateKlientas();
+    int mainMenu = MainMenu();
 
+    if (1 == mainMenu){
+      int klientasMenu = KlientasMenu();
 
+      if(1 == klientasMenu) AddKlientas();
+      if(2 == klientasMenu) UpdateKlientas();
+      if(3 == klientasMenu) DeleteKlientas();
+    }
+
+    if (0 == mainMenu){
+      EXEC SQL DISCONNECT;
+      return 0;
+    }
   }
+}
+
+int KlientasMenu(){
+  printf("Pasirinkite veiksma:\n");
+  printf("1 - Prideti Klienta: \n");
+  printf("2 - Keisti Kliento duomenis: \n");
+  printf("3 - Istrinti Klienta: \n");
+
+  int choice;
+  scanf("%d", &choice);
+  return choice;
+}
+
+int MainMenu(){
+  printf("Pasirinkite veiksma:\n");
+  printf("0 - Iseiti: \n");
+  printf("1 - Klientas: \n");
   
-  EXEC SQL DISCONNECT;
-  return 0;
+  int choice;
+  scanf("%d", &choice);
+  return choice;
 }
 
 bool ConnectToDB(){
