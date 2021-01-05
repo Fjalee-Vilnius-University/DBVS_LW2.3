@@ -6,29 +6,35 @@ void AddKlientas();
 bool ShowAllKlientas();
 void DeleteKlientas();
 void UpdateKlientas();
+bool ConnectToDB();
 
 int main()
 {
   printf("Programa pradeda darba\n");
-
-  EXEC SQL CONNECT TO studentu@pgsql3.mif USER ryce6320 USING Ce123456;
-  if(0 == SQLCODE){
-    printf("Sekmingai prisijungta prie Siuvyklos duombazes.\n");
-  }
-  else{
-    printf("Nepavyko prisijungti prie Siuvyklos duombazes.\n");
-    return 0;
-  }
-
+  bool connected = ConnectToDB();
   
-
-  //AddKlientas();
+  if (connected){
+    AddKlientas();
   //DeleteKlientas();
   //UpdateKlientas();
 
-  EXEC SQL DISCONNECT ;
 
-  return 0 ;
+  }
+  
+  EXEC SQL DISCONNECT;
+  return 0;
+}
+
+bool ConnectToDB(){
+  EXEC SQL CONNECT TO studentu@pgsql3.mif USER ryce6320 USING Ce123456;
+  if(0 == SQLCODE){
+    printf("Sekmingai prisijungta prie Siuvyklos duombazes.\n");
+    return true;
+  }
+  else{
+    printf("Nepavyko prisijungti prie Siuvyklos duombazes.\n");
+    return false;
+  }
 }
 
 void AddKlientas(){
