@@ -9,26 +9,33 @@ void UpdateKlientas();
 bool ConnectToDB();
 int MainMenu();
 int KlientasMenu();
+void ShowSiuvejaTasks();
+void SearchSiuveja();
 
 int main()
 {
-  printf("Programa pradeda darba\n");
   bool connected = ConnectToDB();
-  
-  if (connected){
-    int mainMenu = MainMenu();
 
-    if (1 == mainMenu){
-      int klientasMenu = KlientasMenu();
+  while (1){
+    if (connected){
+      int mainMenu = MainMenu();
 
-      if(1 == klientasMenu) AddKlientas();
-      if(2 == klientasMenu) UpdateKlientas();
-      if(3 == klientasMenu) DeleteKlientas();
-    }
+      if (0 == mainMenu){
+        EXEC SQL DISCONNECT;
+        return 0;
+      }
 
-    if (0 == mainMenu){
-      EXEC SQL DISCONNECT;
-      return 0;
+      if (1 == mainMenu){
+        int klientasMenu = KlientasMenu();
+
+        if(1 == klientasMenu) AddKlientas();
+        if(2 == klientasMenu) UpdateKlientas();
+        if(3 == klientasMenu) DeleteKlientas();
+      }
+
+      if (2 == mainMenu){
+        ShowSiuvejaTasks();
+      }
     }
   }
 }
@@ -45,9 +52,10 @@ int KlientasMenu(){
 }
 
 int MainMenu(){
-  printf("Pasirinkite veiksma:\n");
+  printf("\nPasirinkite veiksma:\n");
   printf("0 - Iseiti: \n");
   printf("1 - Klientas: \n");
+  printf("2 - Patikrinti Siuvejos darbus: \n");
   
   int choice;
   scanf("%d", &choice);
@@ -57,11 +65,11 @@ int MainMenu(){
 bool ConnectToDB(){
   EXEC SQL CONNECT TO studentu@pgsql3.mif USER ryce6320 USING Ce123456;
   if(0 == SQLCODE){
-    printf("Sekmingai prisijungta prie Siuvyklos duombazes.\n");
+    printf("\nSekmingai prisijungta prie Siuvyklos duombazes.\n");
     return true;
   }
   else{
-    printf("Nepavyko prisijungti prie Siuvyklos duombazes.\n");
+    printf("\nNepavyko prisijungti prie Siuvyklos duombazes.\n");
     return false;
   }
 }
@@ -70,8 +78,8 @@ void AddKlientas(){
   EXEC SQL BEGIN DECLARE SECTION;
     char vardas[21];
     char pavarde[21];
-    char tel_nr[12];
-    char el_pastas[40];
+    char tel_nr[13];
+    char el_pastas[41];
   EXEC SQL END DECLARE SECTION;
 
   printf("Iveskite naujo kliento varda: \n");
@@ -102,21 +110,23 @@ bool ShowAllKlientas(){
     int nr;
     char vardas[21];
     char pavarde[21];
-    char tel_nr[12];
+    char tel_nr[13];
+    char el_pastas[41];
   EXEC SQL END DECLARE SECTION;
 
   EXEC SQL DECLARE curs CURSOR FOR
-  SELECT nr, vardas, pavarde, tel_nr FROM Klientas;
+  SELECT * FROM Klientas;
 
   printf("Klientu sarasas:\n");
   EXEC SQL OPEN curs;
   while(1){
-    EXEC SQL FETCH curs INTO :nr, :vardas, :pavarde, :tel_nr;
+    EXEC SQL FETCH curs INTO :nr, :vardas, :pavarde, :tel_nr, :el_pastas;
     if (SQLCODE < 0) goto error;
     if (SQLCODE == 100) goto menu;
 
     printf("%d. %s %s %s\n", nr, vardas, pavarde, tel_nr);
   }
+  EXEC SQL CLOSE curs;
 
   menu: return true;
   error: return false;
@@ -130,7 +140,7 @@ void DeleteKlientas(){
     int nr;
     EXEC SQL END DECLARE SECTION;
 
-    printf("Iveskite trinamo kliento Nr: \n");
+    printf("Iveskite trinamo kliento Nr:\n");
     scanf("%d", &nr);
     EXEC SQL DELETE FROM ryce6320.Klientas WHERE Nr = :nr ;
 
@@ -143,7 +153,7 @@ void DeleteKlientas(){
       printf("Kliento istrinti nepavyko\n");
     }
   }
-  else printf("Nepavyko pateikti Klientu saraso");
+  else printf("Nepavyko pateikti Klientu saraso\n");
 }
 
 void UpdateKlientas(){
@@ -154,8 +164,8 @@ void UpdateKlientas(){
     int nr;
     char vardas[21];
     char pavarde[21];
-    char tel_nr[12];
-    char el_pastas[40];
+    char tel_nr[13];
+    char el_pastas[41];
     EXEC SQL END DECLARE SECTION;
 
     printf("Iveskite keiciamo kliento Nr: \n");
@@ -179,9 +189,71 @@ void UpdateKlientas(){
     }
     else {
       EXEC SQL ROLLBACK;
-      printf("Kliento istrinti nepavyko\n");
+      printf("Kliento atnaujinti nepavyko\n");
     }
   }
   else printf("Nepavyko pateikti Klientu saraso");
 }
 
+void ShowSiuvejaTasks(){
+  SearchSiuveja();
+
+  EXEC SQL BEGIN DECLARE SECTION;
+  int nr;
+  int klientNr;
+  char klientVard[21];
+  char klientPav[21];
+  double kaina;
+  char atlData[11];
+  EXEC SQL END DECLARE SECTION;
+
+  printf("Pasirinkite Nr norimos Siuvejos\n");
+  scanf("%d", &nr);
+
+  EXEC SQL DECLARE curs3 CURSOR FOR 
+  SELECT U.Klientas, K.Vardas, K.Pavarde, U.Kaina, U.Atlikti
+  FROM ryce6320.Uzsakymas AS U, ryce6320.Siuveja AS S, ryce6320.Siuva AS Siuv, ryce6320.Klientas AS K
+  WHERE S.Nr = :nr AND S.Nr = Siuv.Siuveja AND Siuv.Uzsakymas = U.Nr AND K.Nr = U.Klientas;
+
+  EXEC SQL OPEN curs3;
+  while(100 != SQLCODE){
+    EXEC SQL FETCH curs3 INTO :klientNr, :klientVard, :klientPav, :kaina, :atlData;
+    
+    if (0 == SQLCODE)
+      printf("%d. %s %s. Uzsakymas atlikti iki %s. Kaina %lf\n", klientNr, klientVard, klientPav, atlData, kaina);
+  
+  }
+  EXEC SQL CLOSE curs3;
+}
+
+void SearchSiuveja(){
+  EXEC SQL BEGIN DECLARE SECTION;
+  char search[21];
+  int nr;
+  char vardas[21];
+  char pavarde[21];
+  char tel_nr[13];
+  char el_pastas[41];
+  EXEC SQL END DECLARE SECTION;
+  printf("Iveskite ieskomos Siuvejos varda: \n");
+  scanf("%s", &search);
+
+  EXEC SQL DECLARE curs2 CURSOR FOR
+  SELECT Nr, Vardas, Pavarde, Tel_nr FROM ryce6320.Siuveja WHERE LOWER(Vardas) LIKE '%' || LOWER(:search) || '%';
+  if (100 == SQLCODE) printf("Rezultatu nerasta\n");
+  if (0 == SQLCODE){
+    EXEC SQL OPEN curs2;
+    while(1){
+      EXEC SQL FETCH curs2 INTO :nr, :vardas, :pavarde, :tel_nr;
+       
+      if (SQLCODE < 0) goto error2;
+      if (SQLCODE == 100) break;
+      else printf("%d. %s %s %s\n", nr, vardas, pavarde);
+    }
+    EXEC SQL CLOSE curs2;
+  }
+  else goto error2;
+
+  return;
+  error2: printf("Paieskos ivykdyti nepavyko\n");
+}
