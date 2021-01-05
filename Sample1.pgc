@@ -1,24 +1,152 @@
 #include <stdio.h>
+#include <sqlca.h>
+#include <stdbool.h>
 
-EXEC SQL BEGIN DECLARE SECTION ;
-int result ;
-EXEC SQL END DECLARE SECTION ;
+void AddKlientas();
+bool ShowAllKlientas();
+void DeleteKlientas();
+void UpdateKlientas();
 
 int main()
 {
-  printf("Programa pradeda darba\n") ;
+  printf("Programa pradeda darba\n");
 
-  EXEC SQL CONNECT TO studentu@pgsql3.mif USER ryce6320 USING Ce123456 ;
+  EXEC SQL CONNECT TO studentu@pgsql3.mif USER ryce6320 USING Ce123456;
+  if(0 == SQLCODE){
+    printf("Sekmingai prisijungta prie Siuvyklos duombazes.\n");
+  }
+  else{
+    printf("Nepavyko prisijungti prie Siuvyklos duombazes.\n");
+    return 0;
+  }
 
-  printf("CONNECT TO Siuvykla. SQLCODE=%ld\n", SQLCODE ) ;
-  if( 0 == SQLCODE )
-    EXEC SQL SELECT COUNT(*) INTO :result FROM ryce6320.Klientas ;
-  if( 0 == SQLCODE )
-    printf("Programa veikia! Klientu skaicius=%d\n", result) ;
-  else
-    printf("SQLCODE=%ld\n", SQLCODE ) ;
+  
+
+  //AddKlientas();
+  //DeleteKlientas();
+  //UpdateKlientas();
 
   EXEC SQL DISCONNECT ;
 
   return 0 ;
 }
+
+void AddKlientas(){
+  EXEC SQL BEGIN DECLARE SECTION;
+    char vardas[21];
+    char pavarde[21];
+    char tel_nr[12];
+    char el_pastas[40];
+  EXEC SQL END DECLARE SECTION;
+
+  printf("Iveskite naujo kliento varda: \n");
+  scanf("%s", vardas);
+  printf("Iveskite naujo kliento pavarde: \n");
+  scanf("%s", pavarde);
+  printf("Iveskite naujo kliento telefono numeri: \n");
+  scanf("%s", tel_nr);
+  printf("Iveskite naujo kliento elektronini pasta: \n");
+  scanf("%s", el_pastas);
+
+  EXEC SQL INSERT INTO ryce6320.Klientas
+  (Vardas, Pavarde, Tel_nr, El_pastas) VALUES
+  (:vardas, :pavarde, :tel_nr, :el_pastas);
+
+  if(0 == SQLCODE){
+    EXEC SQL COMMIT; 
+    printf("Klientas pridetas\n");
+  }
+  else {
+    EXEC SQL ROLLBACK;
+    printf("Kliento prideti nepavyko\n");
+  }
+}
+
+bool ShowAllKlientas(){
+  EXEC SQL BEGIN DECLARE SECTION;
+    int nr;
+    char vardas[21];
+    char pavarde[21];
+    char tel_nr[12];
+  EXEC SQL END DECLARE SECTION;
+
+  EXEC SQL DECLARE curs CURSOR FOR
+  SELECT nr, vardas, pavarde, tel_nr FROM Klientas;
+
+  printf("Klientu sarasas:\n");
+  EXEC SQL OPEN curs;
+  while(1){
+    EXEC SQL FETCH curs INTO :nr, :vardas, :pavarde, :tel_nr;
+    if (SQLCODE < 0) goto error;
+    if (SQLCODE == 100) goto menu;
+
+    printf("%d. %s %s %s\n", nr, vardas, pavarde, tel_nr);
+  }
+
+  menu: return true;
+  error: return false;
+}
+
+void DeleteKlientas(){
+  bool letDel = ShowAllKlientas();
+
+  if (letDel){
+    EXEC SQL BEGIN DECLARE SECTION;
+    int nr;
+    EXEC SQL END DECLARE SECTION;
+
+    printf("Iveskite trinamo kliento Nr: \n");
+    scanf("%d", &nr);
+    EXEC SQL DELETE FROM ryce6320.Klientas WHERE Nr = :nr ;
+
+    if(0 == SQLCODE){
+      EXEC SQL COMMIT; 
+      printf("Klientas istrintas sekmingai\n");
+    }
+    else {
+      EXEC SQL ROLLBACK;
+      printf("Kliento istrinti nepavyko\n");
+    }
+  }
+  else printf("Nepavyko pateikti Klientu saraso");
+}
+
+void UpdateKlientas(){
+  bool letDel = ShowAllKlientas();
+
+  if (letDel){
+    EXEC SQL BEGIN DECLARE SECTION;
+    int nr;
+    char vardas[21];
+    char pavarde[21];
+    char tel_nr[12];
+    char el_pastas[40];
+    EXEC SQL END DECLARE SECTION;
+
+    printf("Iveskite keiciamo kliento Nr: \n");
+    scanf("%d", &nr);
+    printf("Iveskite nauja varda: \n");
+    scanf("%s", &vardas);
+    printf("Iveskite nauja pavarde: \n");
+    scanf("%s", &pavarde);
+    printf("Iveskite nauja tel. nr: \n");
+    scanf("%s", &tel_nr);
+    printf("Iveskite nauja el. pasta: \n");
+    scanf("%s", &el_pastas);
+
+    EXEC SQL UPDATE ryce6320.Klientas
+    SET Vardas = :vardas, Pavarde = :pavarde, Tel_nr = :tel_nr, El_pastas = :el_pastas
+    WHERE Nr = :nr;
+
+    if(0 == SQLCODE){
+      EXEC SQL COMMIT; 
+      printf("Klientas atnaujintas sekmingai\n");
+    }
+    else {
+      EXEC SQL ROLLBACK;
+      printf("Kliento istrinti nepavyko\n");
+    }
+  }
+  else printf("Nepavyko pateikti Klientu saraso");
+}
+
