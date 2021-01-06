@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <sqlca.h>
 #include <stdbool.h>
+#include <ctype.h>
 
 void AddKlientas();
 bool ShowAllKlientas();
@@ -10,7 +11,9 @@ bool ConnectToDB();
 int MainMenu();
 int KlientasMenu();
 void ShowSiuvejaTasks();
-void SearchSiuveja();
+bool SearchSiuveja();
+bool IsLettersOnly();
+bool DnContainSemiColon(const char s[]);
 
 int main()
 {
@@ -35,6 +38,12 @@ int main()
 
       if (2 == mainMenu){
         ShowSiuvejaTasks();
+      }
+
+      if (3 == mainMenu){
+        char word[21];
+        scanf("%s", word);
+        printf("%d", DnContainSemiColon(word));
       }
     }
   }
@@ -91,18 +100,22 @@ void AddKlientas(){
   printf("Iveskite naujo kliento elektronini pasta: \n");
   scanf("%s", el_pastas);
 
-  EXEC SQL INSERT INTO ryce6320.Klientas
-  (Vardas, Pavarde, Tel_nr, El_pastas) VALUES
-  (:vardas, :pavarde, :tel_nr, :el_pastas);
+  if (IsLettersOnly(vardas) && IsLettersOnly(pavarde) && DnContainSemiColon(tel_nr) && DnContainSemiColon(el_pastas)){
+    EXEC SQL INSERT INTO ryce6320.Klientas
+    (Vardas, Pavarde, Tel_nr, El_pastas) VALUES
+    (:vardas, :pavarde, :tel_nr, :el_pastas);
 
-  if(0 == SQLCODE){
-    EXEC SQL COMMIT; 
-    printf("Klientas pridetas\n");
+    if(0 == SQLCODE){
+      EXEC SQL COMMIT; 
+      printf("Klientas pridetas\n");
+    }
+    else {
+      EXEC SQL ROLLBACK;
+      printf("Kliento prideti nepavyko\n");
+    }
   }
-  else {
-    EXEC SQL ROLLBACK;
-    printf("Kliento prideti nepavyko\n");
-  }
+
+  else printf("Kliento prideti nepavyko\n");
 }
 
 bool ShowAllKlientas(){
@@ -142,6 +155,7 @@ void DeleteKlientas(){
 
     printf("Iveskite trinamo kliento Nr:\n");
     scanf("%d", &nr);
+
     EXEC SQL DELETE FROM ryce6320.Klientas WHERE Nr = :nr ;
 
     if(0 == SQLCODE){
@@ -196,37 +210,36 @@ void UpdateKlientas(){
 }
 
 void ShowSiuvejaTasks(){
-  SearchSiuveja();
+  if (SearchSiuveja()){
+    EXEC SQL BEGIN DECLARE SECTION;
+    int nr;
+    int klientNr;
+    char klientVard[21];
+    char klientPav[21];
+    double kaina;
+    char atlData[11];
+    EXEC SQL END DECLARE SECTION;
 
-  EXEC SQL BEGIN DECLARE SECTION;
-  int nr;
-  int klientNr;
-  char klientVard[21];
-  char klientPav[21];
-  double kaina;
-  char atlData[11];
-  EXEC SQL END DECLARE SECTION;
+    printf("Pasirinkite Nr norimos Siuvejos\n");
+    scanf("%d", &nr);
 
-  printf("Pasirinkite Nr norimos Siuvejos\n");
-  scanf("%d", &nr);
+    EXEC SQL DECLARE curs3 CURSOR FOR 
+    SELECT U.Klientas, K.Vardas, K.Pavarde, U.Kaina, U.Atlikti
+    FROM ryce6320.Uzsakymas AS U, ryce6320.Siuveja AS S, ryce6320.Siuva AS Siuv, ryce6320.Klientas AS K
+    WHERE S.Nr = :nr AND S.Nr = Siuv.Siuveja AND Siuv.Uzsakymas = U.Nr AND K.Nr = U.Klientas;
 
-  EXEC SQL DECLARE curs3 CURSOR FOR 
-  SELECT U.Klientas, K.Vardas, K.Pavarde, U.Kaina, U.Atlikti
-  FROM ryce6320.Uzsakymas AS U, ryce6320.Siuveja AS S, ryce6320.Siuva AS Siuv, ryce6320.Klientas AS K
-  WHERE S.Nr = :nr AND S.Nr = Siuv.Siuveja AND Siuv.Uzsakymas = U.Nr AND K.Nr = U.Klientas;
-
-  EXEC SQL OPEN curs3;
-  while(100 != SQLCODE){
-    EXEC SQL FETCH curs3 INTO :klientNr, :klientVard, :klientPav, :kaina, :atlData;
-    
-    if (0 == SQLCODE)
-      printf("%d. %s %s. Uzsakymas atlikti iki %s. Kaina %lf\n", klientNr, klientVard, klientPav, atlData, kaina);
-  
+    EXEC SQL OPEN curs3;
+    while(100 != SQLCODE){
+      EXEC SQL FETCH curs3 INTO :klientNr, :klientVard, :klientPav, :kaina, :atlData;
+      
+      if (0 == SQLCODE)
+        printf("%d. %s %s. Uzsakymas atlikti iki %s. Kaina %lf\n", klientNr, klientVard, klientPav, atlData, kaina);
+    }
+    EXEC SQL CLOSE curs3;
   }
-  EXEC SQL CLOSE curs3;
 }
 
-void SearchSiuveja(){
+bool SearchSiuveja(){
   EXEC SQL BEGIN DECLARE SECTION;
   char search[21];
   int nr;
@@ -238,22 +251,38 @@ void SearchSiuveja(){
   printf("Iveskite ieskomos Siuvejos varda: \n");
   scanf("%s", &search);
 
-  EXEC SQL DECLARE curs2 CURSOR FOR
-  SELECT Nr, Vardas, Pavarde, Tel_nr FROM ryce6320.Siuveja WHERE LOWER(Vardas) LIKE '%' || LOWER(:search) || '%';
-  if (100 == SQLCODE) printf("Rezultatu nerasta\n");
-  if (0 == SQLCODE){
-    EXEC SQL OPEN curs2;
-    while(1){
-      EXEC SQL FETCH curs2 INTO :nr, :vardas, :pavarde, :tel_nr;
-       
-      if (SQLCODE < 0) goto error2;
-      if (SQLCODE == 100) break;
-      else printf("%d. %s %s %s\n", nr, vardas, pavarde);
+  if (IsLettersOnly(search)){
+    EXEC SQL DECLARE curs2 CURSOR FOR
+    SELECT Nr, Vardas, Pavarde, Tel_nr FROM ryce6320.Siuveja WHERE LOWER(Vardas) LIKE '%' || LOWER(:search) || '%';
+    if (100 == SQLCODE) printf("Rezultatu nerasta\n");
+    if (0 == SQLCODE){
+      EXEC SQL OPEN curs2;
+      while(1){
+        EXEC SQL FETCH curs2 INTO :nr, :vardas, :pavarde, :tel_nr;
+        
+        if (SQLCODE < 0) goto error2;
+        if (SQLCODE == 100) break;
+        else printf("%d. %s %s %s\n", nr, vardas, pavarde);
+      }
+      EXEC SQL CLOSE curs2;
     }
-    EXEC SQL CLOSE curs2;
+    else goto error2;
   }
   else goto error2;
+  return 1;
+  error2: 
+    printf("Paieskos ivykdyti nepavyko\n");
+    return 0;
+}
 
-  return;
-  error2: printf("Paieskos ivykdyti nepavyko\n");
+bool IsLettersOnly(const char s[]){
+  unsigned char c;
+  while ((c = *s) && (isalpha(c) || isblank(c))) ++s;
+  return *s == '\0'; 
+}
+
+bool DnContainSemiColon(const char s[]){
+  unsigned char c;
+  while ((c = *s) && ((c != ';'))) ++s;
+  return *s == '\0'; 
 }
